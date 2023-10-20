@@ -3,9 +3,15 @@ package com.springboot.blogapp.springbootblogrestapi.service.impl;
 
 import com.springboot.blogapp.springbootblogrestapi.entity.Post;
 import com.springboot.blogapp.springbootblogrestapi.exception.ResourceNotFoundException;
+import com.springboot.blogapp.springbootblogrestapi.payload.PostResponse;
 import com.springboot.blogapp.springbootblogrestapi.payload.postDto;
 import com.springboot.blogapp.springbootblogrestapi.repository.PostRepository;
 import com.springboot.blogapp.springbootblogrestapi.service.postService;
+import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -15,9 +21,11 @@ import java.util.stream.Collectors;
 public class PostServiceImpl implements postService {
 
     private PostRepository postRepository;
+    private ModelMapper mapper;
 
-    public PostServiceImpl(PostRepository postRepository) {
+    public PostServiceImpl(PostRepository postRepository, ModelMapper mapper) {
         this.postRepository = postRepository;
+        this.mapper = mapper;
     }
 
     @Override
@@ -36,9 +44,22 @@ public class PostServiceImpl implements postService {
     }
 
     @Override
-    public List<postDto> getAllPosts() {
-        List<Post> posts = postRepository.findAll();
-        return posts.stream().map(post->mapToDto(post)).collect(Collectors.toList());
+    public PostResponse getAllPosts(int pageNo, int pageSize, String sortBy) {
+        Pageable pageable = PageRequest.of(pageNo, pageSize, Sort.by(sortBy));
+        Page<Post> posts = postRepository.findAll(pageable);
+        List<Post> listOfPosts = posts.getContent();
+
+
+        List<postDto> content = listOfPosts.stream().map(post->mapToDto(post)).collect(Collectors.toList());
+        PostResponse postResponse = new PostResponse();
+        postResponse.setContent(content);
+        postResponse.setPageNo(posts.getNumber());
+        postResponse.setPageSize(posts.getSize());
+        postResponse.setTotalElements(posts.getTotalElements());
+        postResponse.setTotalPages(posts.getTotalPages());
+        postResponse.setLast(postResponse.isLast());
+
+        return postResponse;
     }
 
     @Override
@@ -71,19 +92,12 @@ public class PostServiceImpl implements postService {
     // convert entity to DTO
 
     private postDto mapToDto(Post post){
-        postDto postDto = new postDto();
-        postDto.setId(post.getId());
-        postDto.setTitle(post.getTitle());
-        postDto.setDescription(post.getDescription());
-        postDto.setContent(post.getContent());
+        postDto postDto = mapper.map(post, postDto.class);
         return postDto;
     }
 
     private Post mapToEntity(postDto postDto){
-        Post post = new Post();
-        post.setTitle(postDto.getTitle());
-        post.setDescription(postDto.getDescription());
-        post.setContent(postDto.getContent());
+        Post post = mapper.map(postDto, Post.class);
         return post;
 
     }
